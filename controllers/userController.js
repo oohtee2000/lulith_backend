@@ -9,7 +9,7 @@ const crypto = require("crypto");
 // REGISTER
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, role } = req.body; // include role
+    const { name, email, password } = req.body; // include role
 
     // Hash password
     const salt = await bcrypt.genSalt(10);
@@ -20,17 +20,17 @@ exports.register = async (req, res) => {
       name,
       email,
       password: hashedPassword,
-      role: role || 'user', // default to 'user' if role is not provided
+      role: 'user', // default to 'user' if role is not provided
     });
 
     const result = await user.save();
 
     // ✅ SEND WELCOME EMAIL
     await transporter.sendMail({
-      from: `"Osmium Blog" <${process.env.SMTP_USER}>`,
+      from: `"KAM Industry Help Desk" <${process.env.SMTP_USER}>`,
       to: email,
-      subject: "Welcome to Osmium Blog 🎉",
-      template: "welcome", // views/email/welcome.hbs
+      subject: "Your Help Desk Account Has Been Created ✅",
+      template: "account-created", // views/email/welcome.hbs
       context: {
         name: name,
       },
@@ -108,7 +108,81 @@ exports.getUser = async (req, res) => {
   }
 };
 
+// GET ALL USERS (ADMIN / SUPER ADMIN)
+exports.getAllUsers = async (req, res) => {
+  try {
+        console.log("🟢 GET /api/users called by:", req.user?._id);
+    const users = await User.find().select("-password");
+        console.log("🟢 USERS FOUND:", users.length);
 
+    res.json({
+      count: users.length,
+      users,
+    });
+  } catch (error) {
+    console.error("Get all users error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+
+// PROMOTE USER ROLE (ADMIN OR SUPER-ADMIN)
+exports.promoteRole = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { role } = req.body; // desired role: 'user' | 'admin' | 'super_admin'
+
+    // Validate role
+    if (!["user", "admin", "super_admin"].includes(role)) {
+      return res.status(400).json({ message: "Invalid role" });
+    }
+
+    // Prevent self-promotion
+    if (req.user._id.toString() === id) {
+      return res.status(400).json({ message: "You cannot change your own role" });
+    }
+
+    const user = await User.findById(id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const currentUserRole = req.user.role; // role of the logged-in admin
+
+    // ADMIN restrictions
+    if (currentUserRole === "admin") {
+      // Admin cannot promote to super-admin
+      if (role === "super_admin") {
+        return res.status(403).json({ message: "Only super-admin can assign super-admin" });
+      }
+      // Admin can only promote users (not other admins)
+      if (user.role !== "user") {
+        return res.status(403).json({ message: "Admins can only promote users" });
+      }
+    }
+
+    // SUPER-ADMIN restrictions
+    // super-admin can promote anyone to any role ✅
+
+    user.role = role;
+    await user.save();
+
+    res.json({
+      message: `User role updated to ${role}`,
+      user: {
+        id: user._id,
+        email: user.email,
+        role: user.role,
+      },
+    });
+  } catch (error) {
+    console.error("Promote role error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+
+
+
+// Password reset and other functions can be added similarly.
 // REQUEST PASSWORD RESET
 exports.forgotPassword = async (req, res) => {
   try {
@@ -187,45 +261,3 @@ exports.resetPassword = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
-
-// PROMOTE USER TO ADMIN (ADMIN ONLY)
-exports.makeAdmin = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    // Prevent admin from modifying own role
-    if (req.user._id.toString() === id) {
-      return res.status(400).json({
-        message: "You cannot change your own role",
-      });
-    }
-
-    const user = await User.findById(id);
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    if (user.role === "admin") {
-      return res.status(400).json({
-        message: "User is already an admin",
-      });
-    }
-
-    user.role = "admin";
-    await user.save();
-
-    res.json({
-      message: "User promoted to admin successfully",
-      user: {
-        id: user._id,
-        email: user.email,
-        role: user.role,
-      },
-    });
-  } catch (error) {
-    console.error("Make admin error:", error);
-    res.status(500).json({ message: "Server error" });
-  }
-};
-
-

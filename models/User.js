@@ -1,6 +1,12 @@
-const mongoose = require('mongoose');
 
-const userShema = new mongoose.Schema({
+
+const mongoose = require('mongoose');
+console.log("✅ USER MODEL LOADED FROM:", __filename);
+
+
+
+
+const userSchema = new mongoose.Schema({
     name: {
         type: String,  
         required: true
@@ -17,7 +23,7 @@ const userShema = new mongoose.Schema({
     },
     role:{
         type: String,
-        enum: ['user', 'admin'],
+        enum: ['user', 'admin', 'super_admin'],
         default: 'user',
     },
 
@@ -27,5 +33,7 @@ const userShema = new mongoose.Schema({
    
 },
 {timestamps: true});
-
-module.exports = mongoose.model('User', userShema);
+console.log("✅ User enum:", userSchema.path("role").enumValues);
+// module.exports = mongoose.model('User', userSchema);
+module.exports = mongoose.models.User || mongoose.model("User", userSchema);
+// console.log("✅ User enum:", userSchema.path("role").enumValues);

@@ -10,28 +10,34 @@ const {
   logout,
   forgotPassword,
   resetPassword,
-   makeAdmin,
+  getAllUsers,
+  //  makeAdmin,
+   promoteRole,
 } = require("../controllers/userController");
 
 const authMiddleware = require("../middleware/authMiddleware");
+const superAdminMiddleware = require("../middleware/superAdminMiddleware");
 const adminMiddleware = require("../middleware/adminMiddleware");
 
 router.post("/register", register);
 router.post("/login", login);
 router.post("/logout", logout);
 
-router.get("/user", authMiddleware, getUser);
+router.get("/user", authMiddleware,  getUser);
+
+router.get("/users", authMiddleware, adminMiddleware, getAllUsers);
 
 // 🔐 PASSWORD RESET ROUTES
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password/:token", resetPassword);
 
-// 🔐 ADMIN: Promote user to admin
+/// 🔐 Promote user role (admin or super-admin)
 router.put(
-  "/make-admin/:id",
+  "/promote/:id",
   authMiddleware,
-  adminMiddleware,
-  makeAdmin
+  adminMiddleware, // both admin and super-admin pass this
+  promoteRole
 );
+
 
 module.exports = router;
